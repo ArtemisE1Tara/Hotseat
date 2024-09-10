@@ -1,51 +1,43 @@
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
-const fs = require("fs");
+const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+  },
+});
 
-const cors = require('cors');
-const corsOptions ={
-    origin:'http://localhost:3000', 
-    credentials:true,            //access-control-allow-credentials:true
-    optionSuccessStatus:200
-}
-app.use(cors(corsOptions));
-
-// Serve static files
 app.use(express.json());
+app.use(cors());
 
-// Simulated in-memory storage for chair occupancy data
-let chairs = Array(10).fill({ occupied: false });
+const chairs = Array(10).fill({ occupied: false }); // Initial occupancy of 10 chairs
 
-// API endpoint to get chair occupancy
+// API route to get initial data
 app.get("/api/occupancy", (req, res) => {
   res.json(chairs);
 });
 
-// API endpoint to update chair occupancy
+// API route to update chair data
 app.post("/api/occupancy", (req, res) => {
-  const { id, occupied } = req.body;
-  if (id >= 0 && id < chairs.length) {
-    chairs[id] = { occupied };
-    io.emit("occupancyUpdate", { id, occupied });
-    res.status(200).json({ status: "updated" });
-  } else {
-    res.status(400).json({ error: "Invalid chair ID" });
-  }
-});
+    const { id, occupied } = req.body;
+    console.log(`Received data - Chair ID: ${id}, Occupied: ${occupied}`);
+  
+    if (id >= 0 && id < chairs.length) {
+      chairs[id] = { occupied };
+      console.log("Updated chairs:", chairs);  // Log the current state of chairs
+      io.emit("occupancyUpdate", { id, occupied });  // Emit real-time update to all clients
+      res.status(200).json({ status: "updated" });
+    } else {
+      res.status(400).json({ error: "Invalid chair ID" });
+    }
+  });
+  
 
-// Socket.io connection for real-time updates
-io.on("connection", (socket) => {
-  console.log("New client connected");
-  socket.on("disconnect", () => console.log("Client disconnected"));
-});
-
-// Start server
+// Start the server
 server.listen(4000, () => {
-  console.log("Backend server running on port 4000");
+  console.log("Server is running on port 4000");
 });
-
